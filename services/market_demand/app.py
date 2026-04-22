@@ -15,12 +15,7 @@ from pydantic import BaseModel, Field
 def model_dir() -> Path:
     if os.environ.get("DEMAND_MODEL_DIR"):
         return Path(os.environ["DEMAND_MODEL_DIR"])
-    candidates = (
-        "artifacts/demand_forcast",
-        "artifacts/demand_forecast",
-        "model/demand_forcast",
-        "model/demand_forecast",
-    )
+    candidates = ("artifacts/demand_forcast",)
     for candidate in candidates:
         path = Path(candidate)
         if path.is_dir() and (path / "enhanced_demand_model.pkl").is_file():
@@ -154,6 +149,16 @@ def model_info():
 def model_features():
     assert b is not None
     return {"feature_names": b.feature_names}
+
+
+@router.get("/model/categories")
+def model_categories():
+    assert b is not None
+    return {
+        "zone": sorted([str(v) for v in b.le_zone.classes_]),
+        "product": sorted([str(v) for v in b.le_product.classes_]),
+        "season_type": sorted([str(v) for v in b.le_season.classes_]),
+    }
 
 
 @router.post("/forecast")

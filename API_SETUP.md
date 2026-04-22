@@ -1,6 +1,6 @@
 # API setup for Random Forest model
 
-Your FastAPI app expects model artifacts inside `model/rf/`.
+Your FastAPI app expects model artifacts inside `artifacts/price_prediction_rf/`.
 
 ## 1) Add this export block to the end of `price_prediction.ipynb`
 
@@ -9,7 +9,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
-save_dir = Path("model/rf")
+save_dir = Path("artifacts/price_prediction_rf")
 save_dir.mkdir(parents=True, exist_ok=True)
 
 # Force Random Forest export (even if another model wins in evaluation)
@@ -47,17 +47,24 @@ uvicorn gateway:app --host 0.0.0.0 --port 8000
 ## 4) Quick checks
 
 - `GET /health`
-- `GET /model/info`
-- `POST /forecast/price`
+- `GET /price/health`
+- `GET /price/model/info`
+- `GET /price/model/features`
+- `GET /price/model/categories`
+- `POST /price/forecast/price`
 
 Gateway checks:
 
 - `GET /health`
 - `GET /price/health`
+- `GET /price/model/info`
+- `GET /price/model/features`
+- `GET /price/model/categories`
 - `POST /price/forecast/price`
 - `GET /demand/health`
 - `GET /demand/model/info`
 - `GET /demand/model/features`
+- `GET /demand/model/categories`
 - `POST /demand/forecast`
 - `GET /credit/health` (coming soon)
 - `POST /credit/score` (returns 501)

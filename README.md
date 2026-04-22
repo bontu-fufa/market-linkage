@@ -18,7 +18,7 @@ Unified FastAPI gateway for multiple ML services:
 
 ## Requirements
 
-- Python 3.11+ (3.14 works in this project if dependencies install successfully)
+- Python 3.14
 - `pip`
 
 Install dependencies:
@@ -56,10 +56,12 @@ In gateway mode (`uvicorn gateway:app --host 0.0.0.0 --port 8000`), there is a s
 - `GET /price/health`
 - `GET /price/model/info`
 - `GET /price/model/features`
+- `GET /price/model/categories`
 - `POST /price/forecast/price`
 - `GET /demand/health`
 - `GET /demand/model/info`
 - `GET /demand/model/features`
+- `GET /demand/model/categories`
 - `POST /demand/forecast`
 - `GET /credit/health`
 - `POST /credit/score` (returns `501`)
@@ -72,8 +74,6 @@ Default lookup order:
 
 1. `MODEL_DIR` environment variable
 2. `artifacts/price_prediction_rf`
-3. `model/rf`
-4. `models/rf`
 
 Required files:
 
@@ -94,9 +94,6 @@ Default lookup order:
 
 1. `DEMAND_MODEL_DIR` environment variable
 2. `artifacts/demand_forcast`
-3. `artifacts/demand_forecast`
-4. `model/demand_forcast`
-5. `model/demand_forecast`
 
 Required files:
 

@@ -16,11 +16,11 @@ from pydantic import BaseModel, Field
 def model_dir() -> Path:
     if os.environ.get("MODEL_DIR"):
         return Path(os.environ["MODEL_DIR"])
-    for candidate in ("artifacts/price_prediction_rf", "model/rf", "models/rf"):
+    for candidate in ("artifacts/price_prediction_rf",):
         p = Path(candidate)
         if p.is_dir() and ((p / "rf_model.pkl").is_file() or (p / "best_model.pkl").is_file()):
             return p
-    return Path("model/rf")
+    return Path("artifacts/price_prediction_rf")
 
 
 REQUIRED = (
@@ -321,6 +321,17 @@ def model_features():
         "numerical_cols": b.numerical_cols,
         "categorical_cols": b.categorical_cols,
     }
+
+
+@router.get("/model/categories")
+def model_categories():
+    assert b is not None
+    categories: dict[str, list[str]] = {}
+    if hasattr(b.encoder, "categories_"):
+        for index, feature_name in enumerate(b.categorical_cols):
+            values = b.encoder.categories_[index]
+            categories[feature_name] = sorted([str(v) for v in values])
+    return categories
 
 
 @router.post("/forecast/price")

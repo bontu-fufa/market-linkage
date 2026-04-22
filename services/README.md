@@ -14,10 +14,14 @@ uvicorn gateway:app --host 0.0.0.0 --port 8000
 
 - `GET /health` (gateway)
 - `GET /price/health`
+- `GET /price/model/info`
+- `GET /price/model/features`
+- `GET /price/model/categories`
 - `POST /price/forecast/price`
 - `GET /demand/health`
 - `GET /demand/model/info`
 - `GET /demand/model/features`
+- `GET /demand/model/categories`
 - `POST /demand/forecast`
 - `GET /credit/health`
 - `POST /credit/score` (coming soon)
@@ -55,13 +59,16 @@ uvicorn gateway:app --host 0.0.0.0 --port 8000
 - Input aliases are accepted and normalized before model encoding:
   - `Adama` -> `Adama (Nazret)`
   - `Bishoftu` -> `Bishoftu (Debre Zeyit)`
+- Allowed categories can be fetched from `GET /price/model/categories`.
+- Current allowed `commodity_item_type` values: `Barley (Food)`, `Butter (Local)`, `Cabbage`, `Cattle (Live)`, `Chicken (Live)`, `Chickpeas`, `Coffee (Arabica)`, `Eggs (Tray)`, `Faba Beans`, `Goats (Live)`, `Khat (Green)`, `Maize (White)`, `Maize (Yellow)`, `Milk (Fresh)`, `Onions (Red)`, `Potatoes (Irish)`, `Sheep (Live)`, `Sorghum (White)`, `Teff (Mixed)`, `Teff (White)`, `Tomatoes`, `Wheat (Bread)`.
+- Current allowed `market_location` values: `Adama (Nazret)`, `Ambo`, `Asella`, `Bale Robe`, `Bishoftu (Debre Zeyit)`, `Burayu`, `Dukem`, `Jimma`, `Meki`, `Mojo`, `Nekemte`, `Sebeta`, `Shashemene`, `Woliso`.
 
 ### Example request
 
 ```json
 {
   "commodity_item_type": "Tomatoes",
-  "market_location": "Adama",
+  "market_location": "Adama (Nazret)",
   "predict_date": "2026-04-25T00:00:00",
   "history": [
     { "date": "2026-04-20T00:00:00", "current_price_etb": 97.2 },
@@ -108,14 +115,18 @@ uvicorn gateway:app --host 0.0.0.0 --port 8000
 
 - Unknown `zone`, `product`, or `season_type` returns `400` with allowed values.
 - Response field `predicted_demand_growth_rate` is returned as a percentage rounded to 2 decimals.
+- Allowed categories can be fetched from `GET /demand/model/categories`.
+- Current allowed `zone` values: `Arsi`, `Bale`, `Borena`, `East_Shewa`, `Guji`, `Jimma`, `West_Shewa`, `Wollega`.
+- Current allowed `product` values: `Barley`, `Coffee`, `Enset`, `Haricot_bean`, `Maize`, `Sorghum`, `Teff`, `Wheat`.
+- Current allowed `season_type` values: `Belg`, `Meher`, `Meher_Harvest`.
 
 ### Example request
 
 ```json
 {
-  "zone": "Adama",
-  "product": "Tomato",
-  "season_type": "Wet",
+  "zone": "Jimma",
+  "product": "Teff",
+  "season_type": "Meher",
   "month": 4,
   "week": 16,
   "features": {
@@ -129,9 +140,9 @@ uvicorn gateway:app --host 0.0.0.0 --port 8000
 
 ```json
 {
-  "zone": "Adama",
-  "product": "Tomato",
-  "season_type": "Wet",
+  "zone": "Jimma",
+  "product": "Teff",
+  "season_type": "Meher",
   "month": 4,
   "week": 16,
   "predicted_demand_growth_rate": 39.58
