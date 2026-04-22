@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 
-from services.credit_scoring.app import app as credit_app
-from services.market_demand.app import app as demand_app
-from services.price_prediction.app import app as price_app
+from services.credit_scoring.app import router as credit_router
+from services.market_demand.app import init_bundle as init_demand_bundle
+from services.market_demand.app import router as demand_router
+from services.price_prediction.app import init_bundle as init_price_bundle
+from services.price_prediction.app import router as price_router
 
 app = FastAPI(
     title="Market Linkage ML Gateway",
@@ -15,6 +17,12 @@ def gateway_health():
     return {"status": "ok", "service": "gateway"}
 
 
-app.mount("/price", price_app)
-app.mount("/demand", demand_app)
-app.mount("/credit", credit_app)
+@app.on_event("startup")
+async def startup_event() -> None:
+    init_price_bundle()
+    init_demand_bundle()
+
+
+app.include_router(price_router, prefix="/price", tags=["price"])
+app.include_router(demand_router, prefix="/demand", tags=["demand"])
+app.include_router(credit_router, prefix="/credit", tags=["credit"])

@@ -55,8 +55,10 @@ Gateway checks:
 - `GET /health`
 - `GET /price/health`
 - `POST /price/forecast/price`
-- `GET /demand/health` (coming soon)
-- `POST /demand/forecast` (returns 501)
+- `GET /demand/health`
+- `GET /demand/model/info`
+- `GET /demand/model/features`
+- `POST /demand/forecast`
 - `GET /credit/health` (coming soon)
 - `POST /credit/score` (returns 501)
 
@@ -69,3 +71,14 @@ Optional env var:
 ```bash
 set BASELINE_PRICE_ETB=100
 ```
+
+## 6) Demand model artifacts
+
+Place these files in `artifacts/demand_forcast/` (or set `DEMAND_MODEL_DIR`):
+
+- `enhanced_demand_model.pkl`
+- `enhanced_scaler.pkl`
+- `enhanced_le_zone.pkl`
+- `enhanced_le_product.pkl`
+- `enhanced_le_season.pkl`
+- `enhanced_feature_names.pkl`

@@ -9,7 +9,7 @@ from typing import Any, Optional
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 
@@ -44,6 +44,11 @@ class Bundle:
 
 b: Bundle | None = None
 
+MARKET_LOCATION_ALIASES = {
+    "Adama": "Adama (Nazret)",
+    "Bishoftu": "Bishoftu (Debre Zeyit)",
+}
+
 
 def default_baseline_price_etb() -> float:
     raw = os.environ.get("BASELINE_PRICE_ETB", "100")
@@ -65,8 +70,7 @@ def resolve_model_file(base: Path) -> Path:
     )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def init_bundle() -> None:
     global b
     base = model_dir()
     missing = [f for f in REQUIRED if not (base / f).is_file()]
@@ -74,23 +78,30 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(
             f"Missing under {base.resolve()}: {missing}. Set MODEL_DIR or copy training artifacts."
         )
-    b = Bundle()
+    loaded = Bundle()
     model_file = resolve_model_file(base)
-    b.model = joblib.load(model_file)
-    b.scaler = joblib.load(base / "scaler.pkl")
-    b.encoder = joblib.load(base / "categorical_encoder.pkl")
-    b.feature_cols = joblib.load(base / "feature_cols.pkl")
-    b.numerical_cols = joblib.load(base / "numerical_cols.pkl")
-    b.categorical_cols = joblib.load(base / "categorical_cols.pkl")
+    loaded.model = joblib.load(model_file)
+    loaded.scaler = joblib.load(base / "scaler.pkl")
+    loaded.encoder = joblib.load(base / "categorical_encoder.pkl")
+    loaded.feature_cols = joblib.load(base / "feature_cols.pkl")
+    loaded.numerical_cols = joblib.load(base / "numerical_cols.pkl")
+    loaded.categorical_cols = joblib.load(base / "categorical_cols.pkl")
     train_start_date_path = base / "train_start_date.pkl"
-    b.train_start_date = (
+    loaded.train_start_date = (
         pd.Timestamp(joblib.load(train_start_date_path))
         if train_start_date_path.is_file()
         else None
     )
+    b = loaded
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_bundle()
     yield
 
 
+router = APIRouter()
 app = FastAPI(title="Market Price Forecast API", lifespan=lifespan)
 
 
@@ -120,6 +131,39 @@ class ForecastRequest(BaseModel):
     history: Optional[list[HistoryRow]] = Field(default=None, min_length=1)
     weather: Optional[WeatherPayload] = None
     market: Optional[MarketPayload] = None
+
+
+def normalize_market_location(value: str) -> str:
+    return MARKET_LOCATION_ALIASES.get(value, value)
+
+
+def _allowed_values_for_feature(feature_name: str) -> list[str]:
+    assert b is not None
+    if not hasattr(b.encoder, "categories_"):
+        return []
+    if feature_name not in b.categorical_cols:
+        return []
+    feature_index = b.categorical_cols.index(feature_name)
+    categories = b.encoder.categories_[feature_index]
+    return sorted([str(v) for v in categories])
+
+
+def _validate_known_categories_or_400(req: ForecastRequest) -> None:
+    assert b is not None
+    checks = (
+        ("commodity_item_type", req.commodity_item_type),
+        ("market_location", normalize_market_location(req.market_location)),
+    )
+    for feature_name, feature_value in checks:
+        allowed = _allowed_values_for_feature(feature_name)
+        if allowed and str(feature_value) not in allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unknown {feature_name} '{feature_value}'. "
+                    f"Allowed values: {allowed}"
+                ),
+            )
 
 
 def build_features_from_history(
@@ -182,7 +226,7 @@ def build_features_from_history(
 
     row = {
         "commodity_item_type": req.commodity_item_type,
-        "market_location": req.market_location,
+        "market_location": normalize_market_location(req.market_location),
         "month": predict_date.month,
         "week_of_year": int(predict_date.isocalendar()[1]),
         "day_of_week": predict_date.weekday() + 1,
@@ -233,21 +277,30 @@ def build_features_from_history(
     input_df = input_df[b.feature_cols].copy()
 
     if b.categorical_cols:
-        input_df[b.categorical_cols] = b.encoder.transform(
-            input_df[b.categorical_cols].astype(str)
-        )
+        try:
+            input_df[b.categorical_cols] = b.encoder.transform(
+                input_df[b.categorical_cols].astype(str)
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid categorical input. Use /price/model/features and "
+                    "training categories for commodity_item_type and market_location."
+                ),
+            ) from exc
     if b.numerical_cols:
         input_df[b.numerical_cols] = b.scaler.transform(input_df[b.numerical_cols])
 
     return input_df, used_fallback_history
 
 
-@app.get("/health")
+@router.get("/health")
 def health():
     return {"status": "ok"}
 
 
-@app.get("/model/info")
+@router.get("/model/info")
 def model_info():
     assert b is not None
     return {
@@ -260,7 +313,7 @@ def model_info():
     }
 
 
-@app.get("/model/features")
+@router.get("/model/features")
 def model_features():
     assert b is not None
     return {
@@ -270,10 +323,11 @@ def model_features():
     }
 
 
-@app.post("/forecast/price")
+@router.post("/forecast/price")
 def forecast_price(req: ForecastRequest):
     assert b is not None
     try:
+        _validate_known_categories_or_400(req)
         X, used_fallback_history = build_features_from_history(req)
         pred = float(b.model.predict(X)[0])
         response = {
@@ -294,6 +348,9 @@ def forecast_price(req: ForecastRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+app.include_router(router)
 
 
 if __name__ == "__main__":
